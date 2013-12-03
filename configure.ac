@@ -1,4 +1,3 @@
-
 # Copyright (C) 2012,2013 The ESPResSo project
 # Copyright (C) 2006,2007,2008,2009,2010,2011 Olaf Lenz, Axel Arnold
 # Copyright (C) 2008,2009,2010 
@@ -38,7 +37,7 @@ AM_INIT_AUTOMAKE([1.11 gnu subdir-objects dist-xz])
 AM_MAINTAINER_MODE
 
 # silent rules, backwards compatiblity
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # Are we in an unpacked dist or in the git repo?
 AC_MSG_CHECKING([whether we are using development sources])
@@ -151,7 +150,7 @@ cat <<EOF
 ****************************************************************
 EOF
 
-LT_INIT([dlopen])
+LT_INIT([disable-static])
 AC_PROG_AWK
 AC_PROG_EGREP
 AC_PROG_INSTALL
@@ -419,14 +418,18 @@ cat <<EOF
 *                  Checking for Tcl/Tk                         *
 ****************************************************************
 EOF
-AC_DEFINE([USE_NON_CONST],1,[prevent TCL from defining const ptrs])
 
+AC_MSG_CHECKING([whether to build the Tcl interface])
 AC_ARG_WITH(tcl,AS_HELP_STRING([--with-tcl=VERSION],
             [specify the tcl library to use (e.g. tcl8.4)]),
             [], [with_tcl=yes])
+AC_MSG_RESULT($with_tcl)
+
 dnl with_tcl=yes  try to find a working TCL version, bail out if none is found
 dnl with_tcl=no   bail out
 dnl otherwise     use the specified version
+
+AC_DEFINE([USE_NON_CONST],1,[prevent TCL from defining const ptrs])
 
 if test .$with_tcl = .no; then
    use_tcl=none
@@ -481,9 +484,13 @@ AM_CONDITIONAL(TCL, [test .$use_tcl != .none])
 
 ##################################
 # check for tk
+
+AC_MSG_CHECKING([whether to use Tk])
 AC_ARG_WITH(tk,
 	AS_HELP_STRING([--with-tk=VERSION],[whether to use Tk, and which version to use]),
 	[], [with_tk=no])
+AC_MSG_RESULT($with_tcl)
+
 dnl with_tk=no   don't use Tk
 dnl with_tk=yes  try to find a working Tk version, bail out if none is found
 dnl otherwise    use the specified version
@@ -562,15 +569,21 @@ AC_MSG_RESULT($with_efence)
 
 ##################################
 # Handling the myconfig-header
-AC_ARG_WITH(myconfig, 
-  AS_HELP_STRING([--with-myconfig=FILE],
-                 [default name of the local config file [FILE=myconfig.hpp]]),
-[ test .$with_myconfig = .no && with_myconfig=myconfig.hpp ],
-[ with_myconfig=myconfig.hpp ])
-AC_MSG_CHECKING([the name of the configuration header])
-myconfig=$with_myconfig
-AC_MSG_RESULT($myconfig)
-AC_SUBST(myconfig)
+AC_ARG_VAR([MYCONFIG], 
+           [Which myconfig file to use. @<:@myconfig.hpp@:>@])
+AC_MSG_CHECKING([whether the variable MYCONFIG is set])
+AS_IF([test "x$MYCONFIG" != "x"], [
+  AC_MSG_RESULT(yes)
+  AC_MSG_CHECKING([whether file $MYCONFIG exists])
+  if ! test -f $MYCONFIG; then
+    AC_MSG_RESULT(no)
+    AC_MSG_ERROR([MYCONFIG file $MYCONFIG does not exist!])
+  fi
+],[
+  AC_MSG_RESULT(no)
+  MYCONFIG="myconfig.hpp"
+])
+AM_CONDITIONAL(MYCONFIG, [test x$MYCONFIG != xmyconfig.hpp])
 
 ##################################
 # Number of CPUs
@@ -600,9 +613,10 @@ AC_CONFIG_FILES([
 	config/Makefile
 	config/myconfig-sample-header.hpp
 	src/Makefile
+        src/tcl/Makefile
+        src/python/Makefile
 	tools/Makefile
 	scripts/Makefile 
-        cython/Makefile
 	testsuite/Makefile
 	doc/Makefile
 	doc/logo/Makefile
@@ -692,7 +706,7 @@ cat <<EOF
 
 Other settings
 --------------
-local config header	= $myconfig
+config                  = $MYCONFIG
 installation prefix	= $prefix
 number of test tasks    = $CPU_COUNT
 mympiexec               = $MYMPIEXEC
